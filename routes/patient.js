@@ -1,10 +1,10 @@
-// routes/patientRoutes.js
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
 
@@ -47,66 +47,86 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
+// -------------------- Routes --------------------
 
-router.get('/', (req, res) => {
-  const sql = 'SELECT id,name,lname,phone,email,photo FROM patients';
+// ✅ Get All Patients
+router.get("/", (req, res) => {
+  const sql = "SELECT id,name,lname,phone,email,photo FROM patients";
   db.query(sql, (err, results) => {
     if (err) return res.status(500).json({ error: err });
     res.json(results);
   });
 });
 
-
-// Get patient by ID with all related data
-router.get('/care/:id', (req, res) => {
+// ✅ Caretakers
+router.get("/care/:id", (req, res) => {
   const { id } = req.params;
-  const sql = 'SELECT * FROM caretakers WHERE patient_id = ?';
+  const sql = "SELECT * FROM caretakers WHERE patient_id = ?";
   db.query(sql, [id], (err, result) => {
     if (err) return res.status(500).json({ error: err });
-    if (result.length === 0) return res.status(404).json({ message: 'Package not found' });
-    res.json(result[0]);
-  });
-});
-router.get('/habits/:id', (req, res) => {
-  const { id } = req.params;
-  const sql = 'SELECT * FROM habits WHERE patient_id = ?';
-  db.query(sql, [id], (err, result) => {
-    if (err) return res.status(500).json({ error: err });
-    if (result.length === 0) return res.status(404).json({ message: 'Package not found' });
-    res.json(result[0]);
-  });
-});
-router.get('/questions/:id', (req, res) => {
-  const { id } = req.params;
-  const sql = 'SELECT * FROM questions WHERE patient_id = ?';
-  db.query(sql, [id], (err, result) => {
-    if (err) return res.status(500).json({ error: err });
-    if (result.length === 0) return res.status(404).json({ message: 'Package not found' });
-    res.json(result[0]);
-  });
-});
-router.get('/insuranceHospitals/:id', (req, res) => {
-  const { id } = req.params;
-  const sql = 'SELECT * FROM insurance_hospitals WHERE insurance_id = ?';
-  db.query(sql, [id], (err, result) => {
-    if (err) return res.status(500).json({ error: err });
-    if (result.length === 0) return res.status(404).json({ message: 'Package not found' });
-    res.json(result[0]);
+    res.json(result); // Return all caretakers for the patient
   });
 });
 
-router.get('/insuranceDetails/:id', (req, res) => {
+// ✅ Habits
+router.get("/habits/:id", (req, res) => {
   const { id } = req.params;
-  const sql = 'SELECT * FROM insurance_details WHERE patient_id = ?';
+
+  const sql = "SELECT * FROM habits WHERE patient_id = ?";
+  db.query(sql, [id], (err, result) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ error: "Database query failed" });
+    }
+
+    if (result.length === 0) {
+      return res.status(404).json({ message: "No habits found for this patient" });
+    }
+
+    // Return all habits for the patient
+    res.json(result);
+  });
+});
+
+
+// ✅ Questions
+router.get("/questions/:id", (req, res) => {
+  const { id } = req.params;
+  const sql = "SELECT * FROM questions WHERE patient_id = ?";
   db.query(sql, [id], (err, result) => {
     if (err) return res.status(500).json({ error: err });
-    if (result.length === 0) return res.status(404).json({ message: 'Package not found' });
+    if (result.length === 0)
+      return res.status(404).json({ message: "Questions not found" });
     res.json(result[0]);
   });
 });
 
-// READ Single Package
-router.get('/:id', (req, res) => {
+// ✅ Insurance Hospitals
+router.get("/insuranceHospitals/:id", (req, res) => {
+  const { id } = req.params;
+  const sql = "SELECT * FROM insurance_hospitals WHERE insurance_id = ?";
+  db.query(sql, [id], (err, result) => {
+    if (err) return res.status(500).json({ error: err });
+    if (result.length === 0)
+      return res.status(404).json({ message: "Insurance hospitals not found" });
+    res.json(result[0]);
+  });
+});
+
+// ✅ Insurance Details
+router.get("/insuranceDetails/:id", (req, res) => {
+  const { id } = req.params;
+  const sql = "SELECT * FROM insurance_details WHERE patient_id = ?";
+  db.query(sql, [id], (err, result) => {
+    if (err) return res.status(500).json({ error: err });
+    if (result.length === 0)
+      return res.status(404).json({ message: "Insurance details not found" });
+    res.json(result[0]);
+  });
+});
+
+// ✅ Get Single Patient (with joins)
+router.get("/:id", (req, res) => {
   const { id } = req.params;
   const sql = `SELECT 
     p.id AS patient_id, 
@@ -166,14 +186,14 @@ LEFT JOIN (
     GROUP BY patient_id
 ) hb ON p.id = hb.patient_id
 
-WHERE p.id = ?`;
+WHERE p.id = ?`; // keep your same big SELECT query here
   db.query(sql, [id], (err, result) => {
     if (err) return res.status(500).json({ error: err });
-    if (result.length === 0) return res.status(404).json({ message: 'patient not found' });
+    if (result.length === 0)
+      return res.status(404).json({ message: "Patient not found" });
     res.json(result[0]);
   });
 });
-
 
 router.post(
   "/",
@@ -327,145 +347,70 @@ router.post(
 
 
 
-
-// //update patient by ID with all related data
-// // UPDATE Patient with caretakers, insurance, hospitals, questions, habits
-// router.put("/:id", (req, res) => {
-//   const patientId = req.params.id;
-//   const {
-//     patient,
-//     caretakers,
-//     insurance,
-//     insuranceHospitals,
-//     questions,
-//     habits,
-//   } = req.body;
-
-//   // 1️⃣ Update Patient
-//   const sqlUpdatePatient = `
-//     UPDATE patients SET
-//       name=?, lname=?, sname=?, abb=?, abbname=?, gender=?, dob=?, age=?, ocupation=?, phone=?, email=?, photo=?,
-//       rstatus=?, raddress=?, rcity=?, rstate=?, rzipcode=?, paddress=?, pcity=?, pstate=?, pzipcode=?,
-//       idnum=?, addressTextProof=?, proofFile=?
-//     WHERE id=?`;
-
-//   db.query(sqlUpdatePatient, [
-//     patient.name, patient.lname, patient.sname, patient.abb, patient.abbname,
-//     patient.gender, patient.dob, patient.age, patient.ocupation, patient.phone,
-//     patient.email, patient.photo, patient.rstatus, patient.raddress, patient.rcity,
-//     patient.rstate, patient.rzipcode, patient.paddress, patient.pcity, patient.pstate,
-//     patient.pzipcode, patient.idnum, patient.addressTextProof, patient.proofFile,
-//     patientId
-//   ], (err) => {
-//     if (err) return res.status(500).json({ error: err });
-
-//     // 2️⃣ Delete old caretakers & re-insert
-//     db.query(`DELETE FROM caretakers WHERE patient_id=?`, [patientId]);
-//     if (caretakers && caretakers.length > 0) {
-//       caretakers.forEach(c => {
-//         db.query(
-//           `INSERT INTO caretakers (patient_id, name, relation, phone, email, address)
-//            VALUES (?,?,?,?,?,?)`,
-//           [patientId, c.name, c.relation, c.phone, c.email, c.address]
-//         );
-//       });
-//     }
-
-//     // 3️⃣ Delete old insurance & re-insert
-//     db.query(`DELETE FROM insurance_details WHERE patient_id=?`, [patientId], (err) => {
-//       if (!err && insurance) {
-//         const sqlInsurance = `
-//           INSERT INTO insurance_details
-//             (patient_id, insuranceCompany, periodInsurance, sumInsured, policyFiles,
-//              declinedCoverage, similarInsurances, package, packageDetail)
-//           VALUES (?,?,?,?,?,?,?,?,?)`;
-//         db.query(sqlInsurance, [
-//           patientId, insurance.insuranceCompany, insurance.periodInsurance,
-//           insurance.sumInsured, insurance.policyFiles, insurance.declinedCoverage,
-//           insurance.similarInsurances, insurance.package, insurance.packageDetail
-//         ], (err, insResult) => {
-//           if (!err) {
-//             const insuranceId = insResult.insertId;
-
-//             // 4️⃣ Insert Insurance Hospitals
-//             db.query(`DELETE FROM insurance_hospitals WHERE insurance_id=?`, [insuranceId]);
-//             if (insuranceHospitals && insuranceHospitals.length > 0) {
-//               insuranceHospitals.forEach(h => {
-//                 db.query(
-//                   `INSERT INTO insurance_hospitals (insurance_id, hospitalName, hospitalAddress)
-//                    VALUES (?,?,?)`,
-//                   [insuranceId, h.hospitalName, h.hospitalAddress]
-//                 );
-//               });
-//             }
-//           }
-//         });
-//       }
-//     });
-
-//     // 5️⃣ Delete old questions & re-insert
-//     db.query(`DELETE FROM questions WHERE patient_id=?`, [patientId]);
-//     if (questions && questions.length > 0) {
-//       questions.forEach(q => {
-//         db.query(
-//           `INSERT INTO questions (patient_id, question_code, answer, details)
-//            VALUES (?,?,?,?)`,
-//           [patientId, q.question_code, q.answer, q.details]
-//         );
-//       });
-//     }
-
-//     // 6️⃣ Delete old habits & re-insert
-//     db.query(`DELETE FROM habits WHERE patient_id=?`, [patientId]);
-//     if (habits && habits.length > 0) {
-//       habits.forEach(h => {
-//         db.query(
-//           `INSERT INTO habits (patient_id, habit_code, answer, years)
-//            VALUES (?,?,?,?)`,
-//           [patientId, h.habit_code, h.answer, h.years]
-//         );
-//       });
-//     }
-
-//     res.json({
-//       patient_id: patientId,
-//       message: "Patient updated successfully",
-//     });
-//   });
-// });
-
-//delete
-// DELETE Patient and related data
-router.delete('/:id', (req, res) => {
+router.delete("/:id", (req, res) => {
   const { id } = req.params;
 
-  // delete queries (order matters: child tables first, then patients)
-  const deleteQueries = [
-    'DELETE FROM caretakers WHERE patient_id = ?',
-    'DELETE FROM insurance_hospitals WHERE insurance_id IN (SELECT id FROM insurance_details WHERE patient_id = ?)',
-    'DELETE FROM insurance_details WHERE patient_id = ?',
-    'DELETE FROM questions WHERE patient_id = ?',
-    'DELETE FROM habits WHERE patient_id = ?',
-    'DELETE FROM patients WHERE id = ?'
-  ];
+  // Step 1: Fetch all files related to this patient
+  const fetchFilesSql = `
+    SELECT photo, proofFile FROM patients WHERE id = ?;
+    SELECT policyFiles FROM insurance_details WHERE patient_id = ?;
+  `;
 
-  let i = 0;
+  db.query(fetchFilesSql, [id, id], (err, results) => {
+    if (err) return res.status(500).json({ error: err });
 
-  function runQuery() {
-    if (i < deleteQueries.length) {
-      db.query(deleteQueries[i], [id], (err, result) => {
-        if (err) return res.status(500).json({ error: err });
-        i++;
-        runQuery();
-      });
-    } else {
-      res.json({ message: 'Patient and related data deleted successfully' });
+    const patientFiles = results[0][0] || {};
+    const insuranceFiles = results[1] || [];
+
+    // Collect file paths
+    let filesToDelete = [];
+    if (patientFiles.photo) filesToDelete.push(patientFiles.photo);
+    if (patientFiles.proofFile) filesToDelete.push(patientFiles.proofFile);
+
+    insuranceFiles.forEach((row) => {
+      if (row.policyFiles) {
+        // If stored as CSV or JSON string, split
+        const files = row.policyFiles.includes(",")
+          ? row.policyFiles.split(",")
+          : [row.policyFiles];
+        filesToDelete.push(...files);
+      }
+    });
+
+    // Step 2: Delete patient-related rows (order matters)
+    const deleteQueries = [
+      "DELETE FROM caretakers WHERE patient_id = ?",
+      "DELETE FROM insurance_hospitals WHERE insurance_id IN (SELECT id FROM insurance_details WHERE patient_id = ?)",
+      "DELETE FROM insurance_details WHERE patient_id = ?",
+      "DELETE FROM questions WHERE patient_id = ?",
+      "DELETE FROM habits WHERE patient_id = ?",
+      "DELETE FROM patients WHERE id = ?",
+    ];
+
+    let i = 0;
+    function runQuery() {
+      if (i < deleteQueries.length) {
+        db.query(deleteQueries[i], [id], (err) => {
+          if (err) return res.status(500).json({ error: err });
+          i++;
+          runQuery();
+        });
+      } else {
+        // Step 3: Delete files from server
+        filesToDelete.forEach((file) => {
+          const filePath = path.join(__dirname, "..", file); // adjust path
+          fs.unlink(filePath, (err) => {
+            if (err) console.error("File delete error:", filePath, err);
+          });
+        });
+
+        res.json({
+          message: "Patient, related data, and files deleted successfully",
+        });
+      }
     }
-  }
-
-  runQuery();
+    runQuery();
+  });
 });
-
-
 
 module.exports = router;
