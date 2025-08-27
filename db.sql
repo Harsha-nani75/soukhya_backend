@@ -201,6 +201,22 @@ CREATE TABLE habits (
 );
 
 
+
+CREATE TABLE patient_diseases (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    patient_id INT NOT NULL,
+    disease_id INT NOT NULL,
+    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+);
+
+CREATE TABLE patient_files (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    patient_id INT NOT NULL,
+    file_type ENUM('photo', 'proof', 'policy') NOT NULL,
+    file_path VARCHAR(255) NOT NULL,
+    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+);
+
 --dummy data for patients
 -- ============================
 -- Patients
@@ -258,4 +274,111 @@ VALUES
 (1, 'alcohol', 'yes', 3),
 (1, 'smoking', 'yes', 5);
 
+-- ============================
+-- Policy Files Table (for storing policy file metadata)
+-- ============================
+-- CREATE TABLE policy_files (
+--     id INT AUTO_INCREMENT PRIMARY KEY,
+--     patient_id INT NOT NULL,
+--     file_path VARCHAR(500) NOT NULL,
+--     file_name VARCHAR(255) NOT NULL,
+--     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+-- );
 
+-- -- ============================
+-- -- Proof Files Table (for storing proof file metadata)
+-- -- ============================
+-- CREATE TABLE proof_files (
+--     id INT AUTO_INCREMENT PRIMARY KEY,
+--     patient_id INT NOT NULL,
+--     file_path VARCHAR(500) NOT NULL,
+--     file_name VARCHAR(255) NOT NULL,
+--     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+-- );
+
+CREATE TABLE systems (
+    system_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE categories (
+    category_id INT AUTO_INCREMENT PRIMARY KEY,
+    system_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    FOREIGN KEY (system_id) REFERENCES systems(system_id) ON DELETE CASCADE
+);
+
+CREATE TABLE diseases (
+    disease_id INT AUTO_INCREMENT PRIMARY KEY,
+    category_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    code VARCHAR(100) NOT NULL UNIQUE,
+    FOREIGN KEY (category_id) REFERENCES categories(category_id) ON DELETE CASCADE
+);
+
+
+INSERT INTO systems (name) VALUES
+('Endocrine & Metabolic'),
+('Cardiovascular System'),
+('Respiratory System'),
+('Musculoskeletal System'),
+('Reproductive System'),
+('Digestive System'),
+('Urinary System'),
+('Sensory Organs'),
+('Oncology'),
+('Hematology'),
+('Autoimmune & Inflammatory'),
+('Infectious Diseases'),
+('Neurological System'),
+('Mental Health'),
+('Lifestyle & Sports');
+
+
+-- Endocrine & Metabolic (system_id = 1)
+INSERT INTO categories (system_id, name) VALUES
+(1, 'Diabetes'),
+(1, 'Blood Pressure'),
+(1, 'Cholesterol'),
+(1, 'Thyroid Disorders');
+
+-- Cardiovascular System (system_id = 2)
+INSERT INTO categories (system_id, name) VALUES
+(2, 'Heart and Vascular Disease'),
+(2, 'Blood Vessel Disorders');
+
+-- Respiratory System (system_id = 3)
+INSERT INTO categories (system_id, name) VALUES
+(3, 'Respiratory Diseases');
+
+-- Diabetes (category_id = 1)
+INSERT INTO diseases (category_id, name, code) VALUES
+(1, 'Type 1 Diabetes', 'DIAB_T1'),
+(1, 'Type 2 Diabetes', 'DIAB_T2'),
+(1, 'Gestational Diabetes', 'DIAB_GEST'),
+(1, 'Prediabetes', 'DIAB_PRE'),
+(1, 'Diabetes Insipidus', 'DIAB_INSIP');
+
+-- Blood Pressure (category_id = 2)
+INSERT INTO diseases (category_id, name, code) VALUES
+(2, 'Hypertension (High Blood Pressure)', 'BP_HIGH'),
+(2, 'Hypotension (Low Blood Pressure)', 'BP_LOW'),
+(2, 'Essential Hypertension', 'BP_ESSENTIAL'),
+(2, 'Secondary Hypertension', 'BP_SECONDARY');
+
+-- Cholesterol (category_id = 3)
+INSERT INTO diseases (category_id, name, code) VALUES
+(3, 'High Cholesterol (Hypercholesterolemia)', 'CHOL_HIGH'),
+(3, 'Low Cholesterol (Hypocholesterolemia)', 'CHOL_LOW'),
+(3, 'Familial Hypercholesterolemia', 'CHOL_FAMILIAL');
+
+-- Thyroid Disorders (category_id = 4)
+INSERT INTO diseases (category_id, name, code) VALUES
+(4, 'Hypothyroidism', 'THYROID_HYPO'),
+(4, 'Hyperthyroidism', 'THYROID_HYPER'),
+(4, 'Goiter', 'THYROID_GOITER'),
+(4, 'Thyroid Cancer', 'THYROID_CANCER'),
+(4, 'Thyroiditis', 'THYROID_ITIS'),
+(4, 'Thyroid Nodules', 'THYROID_NODULES');

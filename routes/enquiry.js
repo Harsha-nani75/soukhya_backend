@@ -1,107 +1,184 @@
 const express = require("express");
 const router = express.Router();
-const db = require("../config/db"); // your MySQL connection file
-const { route } = require("./patient_update");
-const { configDotenv } = require("dotenv");
+const db = require("../config/db");
 const nodemailer = require('nodemailer');
+require('dotenv').config();
 
+// Helper function for safe database operations
+const safeQuery = (query, params = [], callback) => {
+  try {
+    db.query(query, params, (err, result) => {
+      if (err) {
+        console.error("Database query error:", err.message);
+        callback(new Error(`Database operation failed: ${err.message}`));
+      } else {
+        callback(null, result);
+      }
+    });
+  } catch (error) {
+    console.error("Query execution error:", error.message);
+    callback(new Error(`Query execution failed: ${error.message}`));
+  }
+};
 
-// GET all enquires
-router.get("/", (req, res) => {
-  const sql = `SELECT 
-  id,
-  name,
-  email,
-  phoneNo,
-  address,
-  message,
-  serviceType,
-  treatmentIssue,
-  createdDate AS created_date,   -- correct column name
-  resolved,
-  resolvedDate AS resolved_date  -- correct column name
-FROM enquiries
-ORDER BY createdDate DESC
-LIMIT 0, 25;
-`;
-  db.query(sql, (err, results) => {
-    if (err) {
-      console.error("Error fetching enquires:", err);
-      return res.status(500).json({ error: "Database error" });
+// Input validation helper
+const validateEmail = (email) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+const validatePhone = (phone) => {
+  const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+  return phoneRegex.test(phone);
+};
+
+// Email transporter setup with error handling
+const createTransporter = () => {
+  try {
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      throw new Error("Email configuration missing");
     }
-    res.json(results);
-  });
-});
+    
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+  } catch (error) {
+    console.error("Email transporter error:", error.message);
+    return null;
+  }
+};
 
+// GET all enquiries
+router.get("/", (req, res) => {
+  try {
+    const sql = `SELECT 
+      id,
+      name,
+      email,
+      phoneNo,
+      address,
+      message,
+      serviceType,
+      treatmentIssue,
+      createdDate AS created_date,
+      resolved,
+      resolvedDate AS resolved_date
+    FROM enquiries
+    ORDER BY createdDate DESC
+    LIMIT 0, 25`;
+
+    safeQuery(sql, [], (err, results) => {
+      if (err) {
+        console.error("Get enquiries error:", err.message);
+        return res.status(500).json({ error: "Failed to fetch enquiries" });
+      }
+      res.json(results || []);
+    });
+  } catch (error) {
+    console.error("Get enquiries route error:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 // POST API to save enquiry
 router.post("/enquiries", (req, res) => {
-  const {
-    name,
-    email,
-    phoneNo,
-    address,
-    message,
-    serviceType,
-    treatmentIssue
-  } = req.body;
-
-  // validate serviceType
-  if (!["elder care", "medical tourism"].includes(serviceType)) {
-    return res.status(400).json({ error: "Invalid service type" });
-  }
-
-  // validation for medical tourism
-  if (serviceType === "medical tourism" && !treatmentIssue) {
-    return res
-      .status(400)
-      .json({ error: "treatmentIssue is required for medical tourism" });
-  }
-
-  // validation for elder care
-  if (serviceType === "elder care" && treatmentIssue) {
-    return res
-      .status(400)
-      .json({ error: "treatmentIssue should be null for elder care" });
-  }
-
-  const sql = `
-    INSERT INTO enquiries 
-    (name, email, phoneNo, address, message, serviceType, treatmentIssue) 
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `;
-
-  db.query(
-    sql,
-    [name, email, phoneNo, address, message, serviceType, treatmentIssue || null],
-    (err, result) => {
-      if (err) {
-        console.error("Insert error:", err);
-        return res.status(500).json({ error: "Database insert failed" });
-      }
-      res.status(201).json({
-        message: "Enquiry saved successfully",
-        enquiryId: result.insertId
-      });
-    }
-  );
-});// POST /send-contact-email
-router.post('/send-contact-email', async (req, res) => {
-  const { fullName, phone, message } = req.body;
-
-  if (!fullName || !phone || !message) {
-    return res.status(400).json({ error: 'All fields are required' });
-  }
-
   try {
-    // Nodemailer transporter
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER, // from .env
-        pass: process.env.EMAIL_PASS, // from .env
-      },
-    });
+    const {
+      name,
+      email,
+      phoneNo,
+      address,
+      message,
+      serviceType,
+      treatmentIssue
+    } = req.body;
+
+    // Input validation
+    if (!name || !email || !phoneNo || !message || !serviceType) {
+      return res.status(400).json({ error: "All required fields must be provided" });
+    }
+
+    if (!validateEmail(email)) {
+      return res.status(400).json({ error: "Invalid email format" });
+    }
+
+    if (!validatePhone(phoneNo)) {
+      return res.status(400).json({ error: "Invalid phone number format" });
+    }
+
+    // Validate serviceType
+    if (!["elder care", "medical tourism"].includes(serviceType)) {
+      return res.status(400).json({ error: "Invalid service type. Must be 'elder care' or 'medical tourism'" });
+    }
+
+    // Validation for medical tourism
+    if (serviceType === "medical tourism" && !treatmentIssue) {
+      return res.status(400).json({ error: "Treatment issue is required for medical tourism" });
+    }
+
+    // Validation for elder care
+    if (serviceType === "elder care" && treatmentIssue) {
+      return res.status(400).json({ error: "Treatment issue should not be provided for elder care" });
+    }
+
+    const sql = `
+      INSERT INTO enquiries 
+      (name, email, phoneNo, address, message, serviceType, treatmentIssue) 
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    safeQuery(
+      sql,
+      [name, email, phoneNo, address, message, serviceType, treatmentIssue || null],
+      (err, result) => {
+        if (err) {
+          console.error("Insert enquiry error:", err.message);
+          return res.status(500).json({ error: "Failed to save enquiry" });
+        }
+        
+        res.status(201).json({
+          message: "Enquiry saved successfully",
+          enquiryId: result.insertId
+        });
+      }
+    );
+  } catch (error) {
+    console.error("Save enquiry route error:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /send-contact-email
+router.post('/send-contact-email', async (req, res) => {
+  try {
+    const { fullName, phone, message } = req.body;
+
+    // Input validation
+    if (!fullName || !phone || !message) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    if (fullName.trim().length < 2) {
+      return res.status(400).json({ error: 'Name must be at least 2 characters long' });
+    }
+
+    if (!validatePhone(phone)) {
+      return res.status(400).json({ error: 'Invalid phone number format' });
+    }
+
+    if (message.trim().length < 10) {
+      return res.status(400).json({ error: 'Message must be at least 10 characters long' });
+    }
+
+    // Create email transporter
+    const transporter = createTransporter();
+    if (!transporter) {
+      return res.status(500).json({ error: 'Email service not available' });
+    }
 
     // Styled email template
     const mailOptions = {
@@ -142,10 +219,15 @@ router.post('/send-contact-email', async (req, res) => {
     await transporter.sendMail(mailOptions);
     res.json({ message: "Email sent successfully ✅" });
   } catch (err) {
-    console.error("Email send error:", err);
+    console.error("Email send error:", err.message);
     res.status(500).json({ error: "Failed to send email ❌" });
   }
 });
 
+// Global error handler for this router
+router.use((error, req, res, next) => {
+  console.error("Enquiry router error:", error.message);
+  res.status(500).json({ error: "Internal server error" });
+});
 
 module.exports = router;

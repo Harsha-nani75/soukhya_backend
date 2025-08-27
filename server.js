@@ -9,6 +9,7 @@ const enquiryRoutes = require('./routes/enquiry');
 const packageRoutes = require('./routes/package');
 const patientRoutes = require('./routes/patient');
 const patientUpdateRoutes = require('./routes/patient_update');
+const diseasesRoutes = require('./routes/diseases');
 const app = express();
 const path = require("path");
 
@@ -24,6 +25,7 @@ app.use('/api/user', userRoutes);
 app.use('/api/register', registerRoutes);
 app.use('/api/enquiry', enquiryRoutes);
 app.use('/api/package', packageRoutes);
+app.use('/api/diseases', diseasesRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/patient-update', patientUpdateRoutes);
 port=process.env.PORT || 4865;
