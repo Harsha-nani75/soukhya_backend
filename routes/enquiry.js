@@ -28,7 +28,7 @@ const validateEmail = (email) => {
 };
 
 const validatePhone = (phone) => {
-  const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+  const phoneRegex = /^[\+]?[1-9][\d]{7,15}$/;
   return phoneRegex.test(phone);
 };
 
@@ -97,8 +97,13 @@ router.post("/enquiries", (req, res) => {
       treatmentIssue
     } = req.body;
 
+    // Debug logging
+    console.log('Received request body:', req.body);
+    console.log('Destructured values:', { name, email, phoneNo, address, message, serviceType, treatmentIssue });
+    
     // Input validation
-    if (!name || !email || !phoneNo || !message || !serviceType) {
+    if (!name || !email || !phoneNo || !serviceType) {
+      console.log('Validation failed:', { name: !!name, email: !!email, phoneNo: !!phoneNo, serviceType: !!serviceType });
       return res.status(400).json({ error: "All required fields must be provided" });
     }
 
@@ -106,7 +111,13 @@ router.post("/enquiries", (req, res) => {
       return res.status(400).json({ error: "Invalid email format" });
     }
 
-    if (!validatePhone(phoneNo)) {
+    // Handle phone number with country code
+    let fullPhoneNo = phoneNo;
+    if (req.body.countryCode && !phoneNo.startsWith('+')) {
+      fullPhoneNo = req.body.countryCode + phoneNo;
+    }
+    
+    if (!validatePhone(fullPhoneNo)) {
       return res.status(400).json({ error: "Invalid phone number format" });
     }
 
@@ -125,6 +136,9 @@ router.post("/enquiries", (req, res) => {
       return res.status(400).json({ error: "Treatment issue should not be provided for elder care" });
     }
 
+    // Set default message if not provided
+    const defaultMessage = message || `Enquiry for ${serviceType} services`;
+
     const sql = `
       INSERT INTO enquiries 
       (name, email, phoneNo, address, message, serviceType, treatmentIssue) 
@@ -133,7 +147,7 @@ router.post("/enquiries", (req, res) => {
 
     safeQuery(
       sql,
-      [name, email, phoneNo, address, message, serviceType, treatmentIssue || null],
+      [name, email, fullPhoneNo, address, defaultMessage, serviceType, treatmentIssue || null],
       (err, result) => {
         if (err) {
           console.error("Insert enquiry error:", err.message);

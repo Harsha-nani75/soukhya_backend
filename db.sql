@@ -158,8 +158,7 @@ CREATE TABLE insurance_details (
     patient_id INT,
     insuranceCompany VARCHAR(150),
     periodInsurance VARCHAR(100),
-    sumInsured DECIMAL(12,2),
-    policyFiles TEXT,               -- could store JSON or CSV file paths
+    sumInsured DECIMAL(12,2),              -- could store JSON or CSV file paths
     declinedCoverage TEXT,
     similarInsurances TEXT,
     package VARCHAR(50),            -- e.g. integral, prime, elite
@@ -208,6 +207,9 @@ CREATE TABLE patient_diseases (
     disease_id INT NOT NULL,
     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
 );
+ALTER TABLE patient_diseases
+ADD COLUMN patient_data TEXT NULL;
+
 
 CREATE TABLE patient_files (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -216,6 +218,35 @@ CREATE TABLE patient_files (
     file_path VARCHAR(255) NOT NULL,
     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
 );
+
+-- ============================
+-- Policy Files Table (for storing policy file metadata)
+-- ============================
+
+-- ===========================
+-- Insurance Hospitals
+-- ===========================
+
+CREATE TABLE systems (
+    system_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE categories (
+    category_id INT AUTO_INCREMENT PRIMARY KEY,
+    system_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    FOREIGN KEY (system_id) REFERENCES systems(system_id) ON DELETE CASCADE
+);
+
+CREATE TABLE diseases (
+    disease_id INT AUTO_INCREMENT PRIMARY KEY,
+    category_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    code VARCHAR(100) NOT NULL UNIQUE,
+    FOREIGN KEY (category_id) REFERENCES categories(category_id) ON DELETE CASCADE
+);
+
 
 --dummy data for patients
 -- ============================
@@ -273,50 +304,6 @@ INSERT INTO habits (patient_id, habit_code, answer, years)
 VALUES
 (1, 'alcohol', 'yes', 3),
 (1, 'smoking', 'yes', 5);
-
--- ============================
--- Policy Files Table (for storing policy file metadata)
--- ============================
--- CREATE TABLE policy_files (
---     id INT AUTO_INCREMENT PRIMARY KEY,
---     patient_id INT NOT NULL,
---     file_path VARCHAR(500) NOT NULL,
---     file_name VARCHAR(255) NOT NULL,
---     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
---     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
--- );
-
--- -- ============================
--- -- Proof Files Table (for storing proof file metadata)
--- -- ============================
--- CREATE TABLE proof_files (
---     id INT AUTO_INCREMENT PRIMARY KEY,
---     patient_id INT NOT NULL,
---     file_path VARCHAR(500) NOT NULL,
---     file_name VARCHAR(255) NOT NULL,
---     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
---     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
--- );
-
-CREATE TABLE systems (
-    system_id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL
-);
-
-CREATE TABLE categories (
-    category_id INT AUTO_INCREMENT PRIMARY KEY,
-    system_id INT NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    FOREIGN KEY (system_id) REFERENCES systems(system_id) ON DELETE CASCADE
-);
-
-CREATE TABLE diseases (
-    disease_id INT AUTO_INCREMENT PRIMARY KEY,
-    category_id INT NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    code VARCHAR(100) NOT NULL UNIQUE,
-    FOREIGN KEY (category_id) REFERENCES categories(category_id) ON DELETE CASCADE
-);
 
 
 INSERT INTO systems (name) VALUES
